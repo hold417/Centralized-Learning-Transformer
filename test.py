@@ -431,7 +431,9 @@ def plot_attention_weights(model, data_loader, device, save_dir, show_plot=False
 
 def sMAPE(y_true, y_pred):
     """計算sMAPE"""
-    return 2.0 * np.mean(np.abs(y_pred - y_true) / (np.abs(y_pred) + np.abs(y_true))) * 100
+    if y_true == 0 and y_pred == 0:
+        return 0
+    return 2.0 * np.abs(y_pred - y_true) / (np.abs(y_pred) + np.abs(y_true)) * 100
 
 def plot_sMAPE_summary(model, data_loader, device, save_dir, show_plot=False):
     """繪製sMAPE圖表"""
