@@ -24,12 +24,12 @@ class Config:
             self.data = {
                 'folder_path': 'data/processed',
                 'seq_len': 97,
-                'selected_columns': ['AC1', 'AC2', 'AC3', 'AC4', 'Dish washer', 'Washing Machine', 'Dryer', 'Water heater', 'TV', 'Microwave', 'Kettle', 'Lighting', 'Refrigerator', 'Consumption_Total', 'Generation_Total', 'Power_Demand'],
+                'selected_columns': ['AC1', 'AC2', 'AC3', 'AC4', 'Dish washer', 'Washing Machine', 'Dryer', 'Water heater', 'TV', 'Microwave', 'Kettle', 'Lighting', 'Refrigerator', 'Consumption_Total', 'Generation_Total', 'TemperatureC', 'DewpointC', 'PressurePa', 'WindSpeedKMH', 'WindSpeedGustKMH', 'Humidity', 'HourlyPrecipMM', 'dailyrainMM', 'SolarRadiationWatts_m2', 'Power_Demand'],
                 'scaler_path': 'scaler.pkl'
             }
             
             self.model = {
-                'feature_dim': 16,
+                'feature_dim': 25,
                 'd_model': 256,
                 'nhead': 8,
                 'num_layers': 4,
