@@ -429,6 +429,69 @@ def plot_attention_weights(model, data_loader, device, save_dir, show_plot=False
             
             break  # 只處理第一個批次
 
+def sMAPE(y_true, y_pred):
+    """計算sMAPE"""
+    return 2.0 * np.mean(np.abs(y_pred - y_true) / (np.abs(y_pred) + np.abs(y_true))) * 100
+
+def plot_sMAPE_summary(model, data_loader, device, save_dir, show_plot=False):
+    """繪製sMAPE圖表"""
+    model.eval()
+    all_targets = []
+    all_predictions = []
+    with torch.no_grad():
+        for inputs, targets in data_loader:
+            inputs = inputs.float().to(device)
+            targets = targets.float().to(device)
+            predictions = model(inputs)
+            all_targets.append(targets.cpu().numpy())
+            all_predictions.append(predictions.cpu().numpy())
+
+    all_targets = np.concatenate(all_targets, axis=0).flatten()
+    all_predictions = np.concatenate(all_predictions, axis=0).flatten()
+
+    # calculate sMAPE for each sample
+    sMAPE_values = []
+    for i in range(len(all_targets)):
+        smape_val = sMAPE(all_targets[i], all_predictions[i])
+        sMAPE_values.append(smape_val)
+    
+    sMAPE_values = np.array(sMAPE_values)
+
+    # 1.折線圖
+    plt.figure(figsize=(12, 6))
+    plt.plot(sMAPE_values, color='purple', alpha=0.6, label='sMAPE')
+    plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+    plt.title('Prediction sMAPE on Test Set')
+    plt.xlabel('Sample Index')
+    plt.ylabel('sMAPE (%)')
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, 'sMAPE_line.png'))
+    if show_plot:
+        plt.show()
+    plt.close()
+
+    # 2.直方圖
+    plt.figure(figsize=(8, 6))
+    plt.hist(sMAPE_values, bins=100, color='orange', alpha=0.7, edgecolor='black')
+    plt.title('Prediction sMAPE Distribution')
+    plt.xlabel('sMAPE (%)')
+    plt.ylabel('Frequency')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, 'sMAPE_histogram.png'))
+    if show_plot:
+        plt.show()
+    plt.close()
+
+    # print sMAPE statistics
+    print(f"sMAPE Statistics:")
+    print(f" Mean: {sMAPE_values.mean():.2f}%")
+    print(f" Std:  {sMAPE_values.std():.2f}%")
+    print(f" Max:  {sMAPE_values.max():.2f}%")
+    print(f" Min:  {sMAPE_values.min():.2f}%")
+
 def evaluate_single_file(file_path, model, config, scaler, device, results_dir):
     """對單個檔案進行推論並生成所有圖表"""
     print(f"\n處理檔案: {os.path.basename(file_path)}")
@@ -486,6 +549,9 @@ def evaluate_single_file(file_path, model, config, scaler, device, results_dir):
         
         print("生成注意力權重圖表...")
         plot_attention_weights(model, data_loader, device, save_dir, show_plot=False)
+
+        print("生成sMAPE圖表...")
+        plot_sMAPE_summary(model, data_loader, device, save_dir, show_plot=False)
         
         print(f"✓ {file_name} 處理完成，結果儲存至 {save_dir}")
         
