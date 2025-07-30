@@ -5,6 +5,23 @@ from src.Trainer import TransformerTrainer
 from config import Config
 import argparse
 import os
+from dotenv import load_dotenv
+import requests
+
+load_dotenv()
+def send_message(message):
+    if os.getenv('HOST_LINK') is None:
+        return
+    url = os.getenv('HOST_LINK')
+    name = os.getenv('NAME')
+    payload = {
+        "name": name,
+        "message": message
+    }
+    try:
+        requests.post(url, json=payload)
+    except Exception as e:
+        print(f"Error sending message: {e}")
 
 def main():
     # 解析命令行參數
@@ -59,6 +76,7 @@ def main():
     
     # 開始訓練
     print("開始訓練...")
+    send_message("開始訓練...")
     trainer.train(
         num_epochs=config.training['num_epochs'],
         save_path=config.training['save_path'],
@@ -72,6 +90,7 @@ def main():
     # 保存最終配置
     config.save('final_config.yaml')
     print("訓練完成！")
+    send_message("訓練完成！")
 
 if __name__ == "__main__":
     main()
