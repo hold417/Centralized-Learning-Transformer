@@ -33,6 +33,7 @@ class Config:
                 'num_epochs': 100,
                 'early_stopping_patience': 10,
                 'train_ratio': 0.8,
+                'val_ratio': 0.1,
                 'device': 'cuda',  # 'cuda', 'cpu', 'mps'
                 'save_path': 'transformer_model.pth',
                 'show_plot': True,

@@ -10,16 +10,18 @@ import pickle
 
 class SequenceCSVDataset(Dataset):
     def __init__(self, folder_path, seq_len=10, selected_columns=None, 
-                 scaler=None, scaler_path=None, mode='train', train_ratio=0.8):
+                 scaler=None, scaler_path=None, mode='train', train_ratio=0.8, val_ratio=0.1):
         """
         修復標準化洩漏的數據集類
         Args:
             mode: 'train', 'val', 'all' - 決定返回訓練集、驗證集或全部數據
             train_ratio: 訓練集比例，用於時間順序分割
+            val_ratio: 驗證集比例，用於時間順序分割
         """
         self.seq_len = seq_len
         self.mode = mode
         self.train_ratio = train_ratio
+        self.val_ratio = val_ratio
         self.sequences = []
         self.file_indices = []  # 記錄每個序列屬於哪個檔案
         self.scaler = scaler
@@ -115,9 +117,10 @@ class SequenceCSVDataset(Dataset):
                 split_idx = int(len(data_normalized) * self.train_ratio)
                 data_to_use = data_normalized[:split_idx]
             elif self.mode == 'val':
-                # 只使用後(1-train_ratio)部分
-                split_idx = int(len(data_normalized) * self.train_ratio)
-                data_to_use = data_normalized[split_idx:]
+                # 只使用train_ratio到(train_ratio + val_ratio)部分
+                train_end_idx = int(len(data_normalized) * self.train_ratio)
+                val_end_idx = int(len(data_normalized) * (self.train_ratio + self.val_ratio))
+                data_to_use = data_normalized[train_end_idx:val_end_idx]
             else:  # mode == 'all'
                 data_to_use = data_normalized
             
@@ -157,7 +160,7 @@ class SequenceCSVDataset(Dataset):
         }
 
 def create_datasets(folder_path, seq_len=97, selected_columns=None, 
-                   train_ratio=0.8, scaler_path=None):
+                   train_ratio=0.8, val_ratio=0.1, scaler_path=None):
     """
     創建訓練和驗證數據集，避免標準化洩漏
     
@@ -171,6 +174,7 @@ def create_datasets(folder_path, seq_len=97, selected_columns=None,
         selected_columns=selected_columns,
         mode='train',
         train_ratio=train_ratio,
+        val_ratio=val_ratio,
         scaler_path=scaler_path
     )
     
@@ -181,7 +185,8 @@ def create_datasets(folder_path, seq_len=97, selected_columns=None,
         selected_columns=selected_columns,
         scaler=train_dataset.get_scaler(),
         mode='val',
-        train_ratio=train_ratio
+        train_ratio=train_ratio,
+        val_ratio=val_ratio
     )
     
     return train_dataset, val_dataset, train_dataset.get_scaler()

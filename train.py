@@ -30,6 +30,7 @@ def main():
         seq_len=config.data['seq_len'],
         selected_columns=config.data['selected_columns'],
         train_ratio=config.training['train_ratio'],
+        val_ratio=config.training['val_ratio'],
         scaler_path=config.data['scaler_path']
     )
     

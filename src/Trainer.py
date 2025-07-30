@@ -83,7 +83,7 @@ class TransformerTrainer:
         print(f"模型參數數量: {sum(p.numel() for p in model.parameters()):,}")
         print(f"是否打印圖表: {self.show_plot}")
         print(f"時間順序分割 - 訓練集來自每個文件的前80%時間步")
-        print(f"時間順序分割 - 驗證集來自每個文件的後20%時間步")
+        print(f"時間順序分割 - 驗證集來自每個文件的80%-90%時間步")
 
         # 設置TensorBoard
         if self.config and hasattr(self.config, 'logging') and self.config.logging.get('tensorboard', False):
