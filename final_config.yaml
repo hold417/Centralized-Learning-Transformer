@@ -1,0 +1,58 @@
+data:
+  folder_path: data/processed
+  scaler_path: scaler.pkl
+  selected_columns:
+  - AC1
+  - AC2
+  - AC3
+  - AC4
+  - Dish washer
+  - Washing Machine
+  - Dryer
+  - Water heater
+  - TV
+  - Microwave
+  - Kettle
+  - Lighting
+  - Refrigerator
+  - Consumption_Total
+  - Generation_Total
+  - TemperatureC
+  - DewpointC
+  - PressurehPa
+  - WindSpeedKMH
+  - WindSpeedGustKMH
+  - Humidity
+  - HourlyPrecipMM
+  - dailyrainMM
+  - SolarRadiationWatts_m2
+  - Power_Demand
+  seq_len: 97
+logging:
+  log_dir: runs/transformer_experiment
+  log_file: training.log
+  log_level: INFO
+  save_frequency: 5
+  tensorboard: true
+model:
+  d_model: 256
+  dropout: 0.1
+  feature_dim: 25
+  max_seq_length: 1000
+  nhead: 8
+  num_layers: 4
+  output_dim: 1
+training:
+  batch_size: 32
+  device: cuda
+  early_stopping_patience: 10
+  gradient_clip: 1.0
+  learning_rate: 0.0001
+  num_epochs: 100
+  quiet_mode: false
+  save_path: transformer_model.pth
+  show_plot: false
+  show_progress: false
+  train_ratio: 0.8
+  val_ratio: 0.1
+  weight_decay: 1.0e-05
