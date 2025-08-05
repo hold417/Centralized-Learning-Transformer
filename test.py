@@ -208,30 +208,38 @@ class SingleFileTestDataset(Dataset):
         
         data = df_selected.values.astype(np.float32)
         
-        # 只使用最後10%的資料（相當於驗證集）
-        split_idx = int(len(data) * 0.8)  # 前80%是訓練集
-        data_to_use = data[split_idx:]  # 後20%是驗證集，但我們只要最後10%
-        
-        # 再取後半部分作為最後10%
-        final_split = int(len(data_to_use) * 0.5)
-        data_final = data_to_use[final_split:]
-        
         # 標準化資料
         if self.scaler is not None:
-            data_normalized = self.scaler.transform(data_final)
+            data_normalized = self.scaler.transform(data)
         else:
             raise ValueError("需要提供已訓練的scaler")
         
-        # 創建序列
-        if len(data_normalized) >= self.seq_len:
-            for i in range(len(data_normalized) - self.seq_len + 1):
-                seq = data_normalized[i:i+self.seq_len]
-                self.sequences.append(seq)
+        # 計算可生成的總序列數
+        if len(data_normalized) < self.seq_len:
+            raise ValueError(f"資料長度 {len(data_normalized)} 小於序列長度 {self.seq_len}")
+        
+        total_sequences = len(data_normalized) - self.seq_len + 1
+        
+        # 基於序列數進行劃分：前80%訓練，中間10%驗證，最後10%測試
+        train_seq_count = int(total_sequences * 0.8)
+        val_seq_count = int(total_sequences * 0.1)
+        test_seq_count = total_sequences - train_seq_count - val_seq_count
+        
+        # 計算測試集的起始位置（對應到原始數據的索引）
+        test_start_idx = train_seq_count + val_seq_count
+        
+        # 只創建測試集的序列（最後10%）
+        for i in range(test_start_idx, total_sequences):
+            seq = data_normalized[i:i+self.seq_len]
+            self.sequences.append(seq)
         
         print(f"載入檔案: {os.path.basename(file_path)}")
         print(f"原始資料長度: {len(data)}")
-        print(f"最後10%資料長度: {len(data_final)}")
-        print(f"創建序列數: {len(self.sequences)}")
+        print(f"可生成序列總數: {total_sequences}")
+        print(f"訓練序列數: {train_seq_count}")
+        print(f"驗證序列數: {val_seq_count}")
+        print(f"測試序列數: {test_seq_count}")
+        print(f"實際創建序列數: {len(self.sequences)}")
 
     def __len__(self):
         return len(self.sequences)
@@ -247,7 +255,19 @@ class SingleFileTestDataset(Dataset):
 
 # ========== 圖表生成函數 ==========
 def plot_predictions(model, data_loader, device, save_path, show_plot=False):
-    """繪製預測結果與實際值折線圖並儲存"""
+    """繪製時間序列預測對比圖 - 顯示完整數據
+    
+    時序對比圖展示模型如何跟蹤時間序列的變化：
+    - 可以觀察模型是否捕捉到趨勢和週期性
+    - 發現預測的滯後或超前現象
+    - 識別模型在哪些時間段表現較差
+    
+    完整數據顯示的優點：
+    - 不遺漏任何預測結果，提供完整視角
+    - 確保不同算法的可視化結果完全一致
+    - 能觀察到所有時間點的預測表現
+    - 便於發現局部的預測模式和異常
+    """
     model.eval()
     all_targets = []
     all_predictions = []
@@ -261,19 +281,32 @@ def plot_predictions(model, data_loader, device, save_path, show_plot=False):
     all_targets = np.concatenate(all_targets, axis=0).flatten()
     all_predictions = np.concatenate(all_predictions, axis=0).flatten()
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(all_targets, label='Actual Power Demand', color='blue')
-    plt.plot(all_predictions, label='Predicted Power Demand', color='orange')
-    plt.title('Test Set: Predicted vs. Actual Power Demand')
-    plt.xlabel('Sample Index')
-    plt.ylabel('Power_Demand')
+    # 使用所有數據點，不進行採樣
+    n_samples = len(all_predictions)
+    
+    # 根據數據量調整圖形尺寸
+    # 數據點越多，圖形越寬，便於觀察細節
+    fig_width = max(15, min(30, n_samples // 100))  # 動態調整寬度，最小15，最大30
+    plt.figure(figsize=(fig_width, 6))
+    
+    # 繪製真實值和預測值
+    plt.plot(range(n_samples), all_targets, 
+             label='True Values', linewidth=1.0, alpha=0.8)
+    plt.plot(range(n_samples), all_predictions, 
+             label='Predictions', linewidth=1.0, alpha=0.8)
+    
+    plt.xlabel('Time Steps')
+    plt.ylabel('Values')
+    plt.title(f'Complete Time Series Prediction Comparison')
     plt.legend()
-    plt.grid(True)
+    plt.grid(True, alpha=0.3)
+    
     plt.tight_layout()
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     if show_plot:
         plt.show()
     plt.close()
+    print(f"Saved complete time series plot to {save_path} (showing all {n_samples} points)")
 
 def plot_perfect_prediction(model, data_loader, device, save_path, show_plot=False):
     """繪製完美預測線與預測值點圖並儲存"""
