@@ -528,8 +528,43 @@ def plot_sMAPE_summary(model, data_loader, device, save_dir, show_plot=False):
     print(f" Max:  {sMAPE_values.max():.2f}%")
     print(f" Min:  {sMAPE_values.min():.2f}%")
 
+def save_results_to_csv(results, save_path):
+    """將結果保存為CSV文件並生成統計摘要
+    
+    保存的 CSV 文件包含：
+    - 每個客戶端的所有評估指標
+    - 方便後續分析和製圖
+    - 可用於比較不同算法或配置的結果
+    
+    同時在控制台輸出統計摘要：
+    - 各指標的平均值 ± 標準差
+    - 幫助快速了解整體性能
+    
+    Args:
+        results: 評估結果列表，每個元素包含client、mse、mae、rmse、r2
+        save_path: CSV 文件保存路徑
+    """
+    # 轉換為 DataFrame 並保存
+    df = pd.DataFrame(results)
+    csv_path = os.path.join(save_path, 'test_results.csv')
+    df.to_csv(csv_path, index=False)
+    print(f"\n結果已保存到 {csv_path}")
+    
+    # 計算並顯示統計摘要
+    print("\nTest Results Summary:")
+    print("=" * 50)
+    
+    # 對主要指標計算平均值和標準差
+    for metric in ['mse', 'mae', 'rmse', 'r2']:
+        if metric in df.columns:
+            mean_val = df[metric].mean()
+            std_val = df[metric].std()
+            
+            # 格式化輸出：平均值 ± 標準差
+            print(f"{metric.upper()}: {mean_val:.6f} ± {std_val:.6f}")
+
 def evaluate_single_file(file_path, model, config, scaler, device, results_dir):
-    """對單個檔案進行推論並生成所有圖表"""
+    """對單個檔案進行推論並生成所有圖表，返回評估指標"""
     print(f"\n處理檔案: {os.path.basename(file_path)}")
     
     # 建立結果資料夾
@@ -548,14 +583,16 @@ def evaluate_single_file(file_path, model, config, scaler, device, results_dir):
         
         if len(dataset) == 0:
             print(f"警告: {file_name} 沒有足夠的資料創建序列，跳過此檔案")
-            return
+            return None
         
         # 建立資料載入器
         data_loader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=0)
         
-        # 計算並打印測試損失
+        # 計算評估指標
         model.eval()
         criterion = nn.MSELoss()
+        all_targets = []
+        all_predictions = []
         total_loss = 0.0
         num_batches = 0
         
@@ -567,9 +604,29 @@ def evaluate_single_file(file_path, model, config, scaler, device, results_dir):
                 loss = criterion(predictions, targets)
                 total_loss += loss.item()
                 num_batches += 1
+                
+                # 收集所有預測和目標值
+                all_targets.append(targets.cpu().numpy())
+                all_predictions.append(predictions.cpu().numpy())
         
-        avg_loss = total_loss / num_batches if num_batches > 0 else 0
-        print(f"測試損失 (MSE): {avg_loss:.6f}")
+        # 計算各種評估指標
+        all_targets = np.concatenate(all_targets, axis=0).flatten()
+        all_predictions = np.concatenate(all_predictions, axis=0).flatten()
+        
+        mse = np.mean((all_targets - all_predictions) ** 2)
+        mae = np.mean(np.abs(all_targets - all_predictions))
+        rmse = np.sqrt(mse)
+        
+        # 計算 R² 分數
+        if np.var(all_targets) > 0:
+            r2 = 1 - (np.sum((all_targets - all_predictions) ** 2) / np.sum((all_targets - np.mean(all_targets)) ** 2))
+        else:
+            r2 = 0.0
+        
+        print(f"測試損失 (MSE): {mse:.6f}")
+        print(f"MAE: {mae:.6f}")
+        print(f"RMSE: {rmse:.6f}")
+        print(f"R²: {r2:.4f}")
         
         # 生成所有圖表
         print("生成預測vs實際值圖表...")
@@ -591,8 +648,18 @@ def evaluate_single_file(file_path, model, config, scaler, device, results_dir):
         
         print(f"✓ {file_name} 處理完成，結果儲存至 {save_dir}")
         
+        # 返回評估結果
+        return {
+            'client': file_name,
+            'mse': mse,
+            'mae': mae,
+            'rmse': rmse,
+            'r2': r2
+        }
+        
     except Exception as e:
         print(f"處理 {file_name} 時發生錯誤: {str(e)}")
+        return None
 
 def main():
     """主函數"""
@@ -637,10 +704,17 @@ def main():
     print(f"Consumer 檔案: {len(consumer_files)} 個")
     print(f"Public_Building 檔案: {'存在' if os.path.exists(public_building_file) else '不存在'}")
     
-    # 處理每個檔案
+    # 處理每個檔案並收集結果
+    results = []
     for i, file_path in enumerate(all_files, 1):
         print(f"\n[{i}/{len(all_files)}] ", end="")
-        evaluate_single_file(file_path, model, config, scaler, device, results_dir)
+        result = evaluate_single_file(file_path, model, config, scaler, device, results_dir)
+        if result is not None:
+            results.append(result)
+    
+    # 保存評估結果到CSV
+    if results:
+        save_results_to_csv(results, results_dir)
     
     print(f"\n所有檔案處理完成！結果儲存在 {results_dir} 資料夾中")
 
